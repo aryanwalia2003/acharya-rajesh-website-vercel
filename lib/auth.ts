@@ -1,11 +1,13 @@
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
 import { query } from "./db";
 import { idGenerator } from "./id-generator";
+import { authConfig } from "@/auth.config";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [Google],
+  ...authConfig,
+  providers: authConfig.providers, // Explicitly pass providers again if spread doesn't catch them due to strictness
   callbacks: {
+    ...authConfig.callbacks,
     async signIn({ user }) {
       console.log("-----------------------------------------");
       console.log("AUTH START: signIn callback triggered");

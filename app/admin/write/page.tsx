@@ -7,6 +7,7 @@ import {
   Type, Settings, Info, Heading2
 } from 'lucide-react';
 import Link from 'next/link';
+import { publishArticle } from './actions';
 
 export default function AdminWritePage() {
   const [isPreview, setIsPreview] = useState(false);
@@ -14,6 +15,7 @@ export default function AdminWritePage() {
   const [title, setTitle] = useState("शनि का गोचर 2024");
   const [tags, setTags] = useState(["ShaniTransit", "VedicAstrology"]);
   const [newTag, setNewTag] = useState("");
+  const [isPublishing, setIsPublishing] = useState(false);
   const [activeFormats, setActiveFormats] = useState({
     bold: false,
     italic: false,
@@ -70,6 +72,28 @@ export default function AdminWritePage() {
     }
   };
 
+  const handlePublish = async () => {
+    if (!title || !editorRef.current) return;
+
+    setIsPublishing(true);
+    
+    const result = await publishArticle({
+      title: title,
+      content: editorRef.current.innerHTML, // Get the formatted HTML
+      slug: title.toLowerCase().replace(/\s+/g, '-'), // Basic slug logic
+      tags: tags,
+      status: 'PUBLISHED'
+    });
+
+    setIsPublishing(false);
+
+    if (result.success) {
+      alert("Article Published Successfully!");
+    } else {
+      alert("Error: " + result.error);
+    }
+  };
+
   if (isPreview) { /* Previous Preview Code... */ }
 
   return (
@@ -114,8 +138,13 @@ export default function AdminWritePage() {
             <button onClick={() => setIsPreview(true)} className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-widest text-brand-navy hover:bg-brand-navy/5">
               <Eye size={16} /> Preview
             </button>
-            <button className="flex items-center gap-2 rounded-lg bg-brand-navy px-6 py-2 text-xs font-bold uppercase tracking-widest text-brand-gold shadow-md active:scale-95 transition-transform">
-              <Send size={16} /> Publish
+            <button 
+              onClick={handlePublish}
+              disabled={isPublishing}
+              className="flex items-center gap-2 rounded-lg bg-brand-navy px-6 py-2 text-xs font-bold uppercase tracking-widest text-brand-gold shadow-md disabled:opacity-50"
+            >
+              <Send size={16} /> 
+              {isPublishing ? "Publishing..." : "Publish"}
             </button>
           </div>
         </header>
