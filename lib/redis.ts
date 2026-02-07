@@ -7,4 +7,14 @@ const redisClient = () => {
   throw new Error('REDIS_URL is not defined in .env');
 };
 
-export const redis = redisClient();
+const redis = redisClient();
+
+redis.on('connect', () => {
+  console.log('[REDIS] Connection established successfully');
+});
+
+redis.on('error', (err) => {
+  console.error('[REDIS] Connection error:', err);
+});
+
+export { redis };

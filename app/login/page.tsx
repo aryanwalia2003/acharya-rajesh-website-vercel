@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { Sparkles, ShieldCheck, Mail } from 'lucide-react';
+import { signIn } from "@/lib/auth";
+
 
 export default function LoginPage() {
   return (
@@ -34,14 +36,21 @@ export default function LoginPage() {
           </div>
 
           {/* Google Button */}
-          <button className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white py-3.5 px-4 text-sm font-bold text-brand-navy shadow-sm transition-all hover:bg-slate-50 hover:border-brand-gold/50 active:scale-[0.98]">
-            <img 
-              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-              alt="Google" 
-              className="h-5 w-5"
-            />
-            Continue with Google
-          </button>
+          <form
+            action={async () => {
+              "use server";
+              await signIn("google", { redirectTo: "/" });
+            }}
+          >
+            <button type="submit" className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white py-3.5 px-4 text-sm font-bold text-brand-navy shadow-sm transition-all hover:bg-slate-50 hover:border-brand-gold/50 active:scale-[0.98]">
+              <img 
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
+                alt="Google" 
+                className="h-5 w-5"
+              />
+              Continue with Google
+            </button>
+          </form>
 
           {/* Benefits Section */}
           <div className="mt-10 space-y-4 border-t border-slate-100 pt-8">
