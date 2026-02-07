@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { upsertArticle, getNewPostId } from './actions';
+import { runAITask } from './ai-actions';
 import { getPostForEditing } from './data';
 import { 
   Wand2, Languages, CalendarDays, Eye, Send, ChevronLeft, 
@@ -21,6 +22,7 @@ export default function AdminWritePage() {
 
 function EditorComponent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const editId = searchParams.get('edit');
 
   const [postId, setPostId] = useState<string | null>(null);
@@ -40,8 +42,16 @@ function EditorComponent() {
   });
   const [stats, setStats] = useState({ words: 0, readTime: 0 });
   const [isPublishing, setIsPublishing] = useState(false);
+  const [postStatus, setPostStatus] = useState<'DRAFT' | 'PUBLISHED'>('DRAFT');
+
+  // AI Task States
+  const [englishTranslation, setEnglishTranslation] = useState("");
+  const [englishSummary, setEnglishSummary] = useState("");
+  const [extractedDates, setExtractedDates] = useState<any[]>([]);
+  const [activeAiTask, setActiveAiTask] = useState<string | null>(null);
   
   const editorRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
 
   // 1. LOAD INITIAL DATA (New or Edit)
   useEffect(() => {
@@ -54,10 +64,20 @@ function EditorComponent() {
           setTitle(post.title_hindi);
           setTags(post.tags || []);
           setContent(post.content_hindi);
-          // Manually set the contentEditable div content
-          if (editorRef.current) {
-            editorRef.current.innerHTML = post.content_hindi;
-          }
+          setPostStatus(post.status || 'DRAFT');
+          
+          // Wait for DOM to be ready, then set content
+          setTimeout(() => {
+            // Set editor content
+            if (editorRef.current && post.content_hindi) {
+              editorRef.current.innerHTML = post.content_hindi;
+            }
+            // Auto-resize title
+            if (titleRef.current) {
+              titleRef.current.style.height = 'auto';
+              titleRef.current.style.height = titleRef.current.scrollHeight + 'px';
+            }
+          }, 100);
         }
       } else {
         // Mode: NEW POST
@@ -86,7 +106,11 @@ function EditorComponent() {
         content: editorRef.current?.innerHTML || "",
         slug: title.toLowerCase().trim().replace(/\s+/g, '-').slice(0, 50),
         tags: tags,
-        intent: 'DRAFT' // Auto-save is always a draft intent
+        intent: 'DRAFT',
+        // Include AI content if available
+        english_translation: englishTranslation,
+        english_summary: englishSummary,
+        important_dates: extractedDates
       });
 
       if (result.success) {
@@ -97,7 +121,7 @@ function EditorComponent() {
     }, 2000);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [title, content, tags, isLoaded, postId]);
+  }, [title, content, tags, isLoaded, postId, englishTranslation, englishSummary, extractedDates]);
 
   // Check current selection formatting
   const checkFormats = () => {
@@ -157,15 +181,43 @@ function EditorComponent() {
       content: editorRef.current.innerHTML,
       slug: title.toLowerCase().trim().replace(/\s+/g, '-').slice(0, 50), 
       tags: tags,
-      intent: 'PUBLISH'
+      intent: 'PUBLISH',
+      // Include AI content
+      english_translation: englishTranslation,
+      english_summary: englishSummary,
+      important_dates: extractedDates
     });
 
     setIsPublishing(false);
 
     if (result.success) {
-      alert("Article Published Successfully!");
+      setPostStatus('PUBLISHED');
+      router.push('/admin/articles'); // Redirect to articles list
     } else {
       alert("Error: " + result.error);
+    }
+  };
+
+  // AI Task Handler
+  const handleAiTask = async (type: 'translation' | 'summary' | 'dates') => {
+    const hindiContent = editorRef.current?.innerHTML || "";
+    if (!hindiContent || hindiContent === "<p>अपनी रिसर्च यहाँ लिखें...</p>") {
+      alert("Please write some content in Hindi first!");
+      return;
+    }
+
+    setActiveAiTask(type);
+    const result = await runAITask(hindiContent, type);
+    setActiveAiTask(null);
+
+    if (result.success) {
+      if (type === 'translation') setEnglishTranslation(result.data as string);
+      if (type === 'summary') setEnglishSummary(result.data as string);
+      if (type === 'dates') setExtractedDates(result.data as any[]);
+      
+      alert(`${type.toUpperCase()} generated and cached!`);
+    } else {
+      alert("AI Error: " + result.error);
     }
   };
 
@@ -237,7 +289,10 @@ function EditorComponent() {
               className="flex items-center gap-2 rounded-lg bg-brand-navy px-6 py-2 text-xs font-bold uppercase tracking-widest text-brand-gold shadow-md disabled:opacity-50"
             >
               <Send size={16} /> 
-              {isPublishing ? "Publishing..." : "Publish"}
+              {isPublishing 
+                ? (postStatus === 'PUBLISHED' ? "Saving..." : "Publishing...") 
+                : (postStatus === 'PUBLISHED' ? "Save Changes" : "Publish")
+              }
             </button>
           </div>
         </header>
@@ -298,11 +353,19 @@ function EditorComponent() {
               </div>
 
               {/* Title Input */}
-              <input 
-                type="text" 
+              <textarea 
+                ref={titleRef}
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full border-none bg-transparent font-hindi text-4xl md:text-5xl font-black text-brand-navy focus:ring-0 leading-normal py-6 mb-8 placeholder:text-slate-300"
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  // Auto-resize on change
+                  const el = e.target;
+                  el.style.height = 'auto';
+                  el.style.height = el.scrollHeight + 'px';
+                }}
+                rows={2}
+                className="w-full border-none bg-transparent font-hindi text-4xl md:text-5xl font-black text-brand-navy focus:ring-0 leading-tight py-4 mb-6 placeholder:text-slate-300 resize-none"
+                style={{ minHeight: '60px' }}
               />
 
               {/* THE EDITOR */}
@@ -354,25 +417,64 @@ function EditorComponent() {
           </h3>
         </div>
         <div className="p-6 space-y-4">
-          <ToolCard icon={<Languages size={18}/>} title="Translation" desc="Hindi to Scholarly English" />
-          <ToolCard icon={<FileText size={18}/>} title="Summary" desc="3-Paragraph Exec Summary" />
-          <ToolCard icon={<CalendarDays size={18}/>} title="Extract Dates" desc="Muhurats & Transits" badge="SAVE REQ" />
+          <ToolCard 
+            icon={<Languages size={18}/>} 
+            title="Translation" 
+            desc={englishTranslation ? "✓ Translation Ready" : "Hindi to Scholarly English"}
+            loading={activeAiTask === 'translation'}
+            onClick={() => handleAiTask('translation')}
+            active={!!englishTranslation}
+          />
+          <ToolCard 
+            icon={<FileText size={18}/>} 
+            title="Summary" 
+            desc={englishSummary ? "✓ Summary Ready" : "3-Paragraph Exec Summary"} 
+            loading={activeAiTask === 'summary'}
+            onClick={() => handleAiTask('summary')}
+            active={!!englishSummary}
+          />
+          <ToolCard 
+            icon={<CalendarDays size={18}/>} 
+            title="Extract Dates" 
+            desc={extractedDates.length > 0 ? `✓ ${extractedDates.length} Dates Found` : "Muhurats & Transits"} 
+            loading={activeAiTask === 'dates'}
+            onClick={() => handleAiTask('dates')}
+            active={extractedDates.length > 0}
+          />
         </div>
       </aside>
     </div>
   );
 }
 
-function ToolCard({ icon, title, desc, badge }: { icon: any, title: string, desc: string, badge?: string }) {
+interface ToolCardProps {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  badge?: string;
+  loading?: boolean;
+  onClick?: () => void;
+  active?: boolean;
+}
+
+function ToolCard({ icon, title, desc, badge, loading, onClick, active }: ToolCardProps) {
   return (
-    <button className="flex w-full flex-col gap-1 rounded-xl border border-brand-navy/5 bg-brand-paper p-4 text-left transition-all hover:border-brand-gold/50 group">
+    <button 
+      onClick={onClick}
+      disabled={loading}
+      className={`flex w-full flex-col gap-1 rounded-xl border p-4 text-left transition-all group disabled:opacity-70 disabled:cursor-wait
+        ${active ? 'border-green-500/50 bg-green-50' : 'border-brand-navy/5 bg-brand-paper hover:border-brand-gold/50'}`}
+    >
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2 text-brand-navy font-bold text-xs uppercase tracking-tight">
-          <span className="text-brand-gold">{icon}</span> {title}
+          <span className={active ? 'text-green-500' : 'text-brand-gold'}>
+            {loading ? <div className="h-4 w-4 border-2 border-brand-gold border-t-transparent rounded-full animate-spin"></div> : icon}
+          </span> 
+          {title}
         </div>
         {badge && <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[7px] font-black text-slate-500">{badge}</span>}
       </div>
-      <p className="text-[10px] text-slate-400">{desc}</p>
+      <p className={`text-[10px] ${active ? 'text-green-600' : 'text-slate-400'}`}>{desc}</p>
     </button>
   );
 }

@@ -15,7 +15,11 @@ export async function upsertArticle(formData: {
   content: string;
   slug: string;
   tags: string[];
-  intent: 'DRAFT' | 'PUBLISH'; // We use 'intent' to decide the logic
+  intent: 'DRAFT' | 'PUBLISH';
+  // AI-Generated Content (Optional - only saved when provided)
+  english_translation?: string;
+  english_summary?: string;
+  important_dates?: any[];
 }) {
   if (!(await isAdmin())) throw new Error("Unauthorized");
 
@@ -29,7 +33,10 @@ export async function upsertArticle(formData: {
       slug, 
       tags, 
       status, 
-      published_at
+      published_at,
+      english_translation,
+      english_summary,
+      important_dates
     ) 
     VALUES (
       $1, 
@@ -41,7 +48,9 @@ export async function upsertArticle(formData: {
       $4,
       $3, $5, 
       CASE WHEN $6 = 'PUBLISH' THEN 'PUBLISHED' ELSE 'DRAFT' END,
-      CASE WHEN $6 = 'PUBLISH' THEN CURRENT_TIMESTAMP ELSE NULL END
+      CASE WHEN $6 = 'PUBLISH' THEN CURRENT_TIMESTAMP ELSE NULL END,
+      -- AI Content (Set if provided)
+      $7, $8, $9
     )
     ON CONFLICT (id) 
     DO UPDATE SET 
@@ -82,6 +91,11 @@ export async function upsertArticle(formData: {
       published_at = COALESCE(posts.published_at, 
         CASE WHEN $6 = 'PUBLISH' THEN CURRENT_TIMESTAMP ELSE NULL END
       ),
+
+      -- AI CONTENT: Only update if new value is provided (not null/empty)
+      english_translation = COALESCE(NULLIF($7, ''), posts.english_translation),
+      english_summary = COALESCE(NULLIF($8, ''), posts.english_summary),
+      important_dates = COALESCE($9, posts.important_dates),
       
       updated_at = CURRENT_TIMESTAMP
     RETURNING id, slug, status;
@@ -93,7 +107,10 @@ export async function upsertArticle(formData: {
     formData.slug,
     formData.content,
     formData.tags,
-    formData.intent
+    formData.intent,
+    formData.english_translation || null,
+    formData.english_summary || null,
+    formData.important_dates ? JSON.stringify(formData.important_dates) : null
   ];
 
   try {

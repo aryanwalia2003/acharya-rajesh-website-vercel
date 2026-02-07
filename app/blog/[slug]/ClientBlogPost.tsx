@@ -3,7 +3,14 @@
 import { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import ImportantDates from '@/components/ImportantDates';
-import { Share2, Bookmark } from 'lucide-react';
+import { Share2, Bookmark, Sparkles } from 'lucide-react';
+
+interface ExtractedDate {
+  date: string;
+  title_hi: string;
+  title_en: string;
+  type: string;
+}
 
 interface BlogPostProps {
   post: {
@@ -12,12 +19,18 @@ interface BlogPostProps {
     date: string;
     category: string;
     slug: string;
-    importantDates: any[];
+    englishTranslation: string | null;
+    englishSummary: string | null;
+    importantDates: ExtractedDate[];
   };
 }
 
 export default function ClientBlogPost({ post }: BlogPostProps) {
   const [view, setView] = useState<'hindi' | 'english' | 'summary'>('hindi');
+
+  const hasTranslation = !!post.englishTranslation;
+  const hasSummary = !!post.englishSummary;
+  const hasDates = post.importantDates && post.importantDates.length > 0;
 
   return (
     <div className="min-h-screen bg-brand-paper">
@@ -49,21 +62,23 @@ export default function ClientBlogPost({ post }: BlogPostProps) {
             </button>
             <button 
               onClick={() => setView('english')}
-              className={`px-4 py-2 transition-all ${view === 'english' ? 'border-b-2 border-brand-gold text-brand-navy' : 'text-slate-400'}`}
+              disabled={!hasTranslation}
+              className={`px-4 py-2 transition-all flex items-center gap-1 ${view === 'english' ? 'border-b-2 border-brand-gold text-brand-navy' : 'text-slate-400'} ${!hasTranslation ? 'opacity-40 cursor-not-allowed' : ''}`}
             >
-              English
+              English {hasTranslation && <Sparkles size={12} className="text-brand-gold" />}
             </button>
             <button 
               onClick={() => setView('summary')}
-              className={`px-4 py-2 transition-all ${view === 'summary' ? 'border-b-2 border-brand-gold text-brand-navy' : 'text-slate-400'}`}
+              disabled={!hasSummary}
+              className={`px-4 py-2 transition-all flex items-center gap-1 ${view === 'summary' ? 'border-b-2 border-brand-gold text-brand-navy' : 'text-slate-400'} ${!hasSummary ? 'opacity-40 cursor-not-allowed' : ''}`}
             >
-              Summary
+              Summary {hasSummary && <Sparkles size={12} className="text-brand-gold" />}
             </button>
           </div>
         </header>
 
         {/* Article Content */}
-        <article className={`prose prose-lg max-w-none text-brand-ink leading-relaxed transition-all duration-500 ${view === 'hindi' ? 'select-none' : ''}`}>
+        <article className={`prose prose-lg max-w-none text-brand-ink leading-relaxed transition-all duration-500`}>
           {view === 'hindi' && (
             <div className="font-hindi text-xl md:text-2xl space-y-8 opacity-100" dangerouslySetInnerHTML={{ __html: post.content }}>
             </div>
@@ -71,20 +86,30 @@ export default function ClientBlogPost({ post }: BlogPostProps) {
 
           {view === 'english' && (
             <div className="font-display text-lg md:text-xl space-y-8 animate-fade-in">
-              <p>English translation is coming soon...</p>
+              {hasTranslation ? (
+                <div dangerouslySetInnerHTML={{ __html: post.englishTranslation! }} />
+              ) : (
+                <p className="text-slate-400 italic">English translation is not available yet.</p>
+              )}
             </div>
           )}
 
           {view === 'summary' && (
-            <div className="rounded-lg bg-brand-navy/5 p-8 italic font-display text-lg animate-pulse-subtle">
-              <h4 className="mb-4 font-bold uppercase tracking-widest text-brand-gold">Executive Summary</h4>
-              <p>Summary is coming soon...</p>
+            <div className="rounded-lg bg-brand-navy/5 p-8 font-display text-lg">
+              <h4 className="mb-4 font-bold uppercase tracking-widest text-brand-gold flex items-center gap-2">
+                <Sparkles size={16} /> Executive Summary
+              </h4>
+              {hasSummary ? (
+                <p className="leading-relaxed">{post.englishSummary}</p>
+              ) : (
+                <p className="text-slate-400 italic">Summary is not available yet.</p>
+              )}
             </div>
           )}
         </article>
 
-        {/* Key Dates Component */}
-        <ImportantDates dates={post.importantDates} />
+        {/* Key Dates Component - Only show if dates exist */}
+        {hasDates && <ImportantDates dates={post.importantDates} />}
 
         {/* Bottom Actions */}
         <footer className="mt-16 flex items-center justify-between border-t border-brand-navy/10 pt-8">
@@ -104,3 +129,4 @@ export default function ClientBlogPost({ post }: BlogPostProps) {
     </div>
   );
 }
+

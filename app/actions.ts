@@ -50,7 +50,10 @@ export async function getPostBySlug(slug: string) {
       content_hindi, 
       slug, 
       tags, 
-      published_at
+      published_at,
+      english_translation,
+      english_summary,
+      important_dates
     FROM posts 
     WHERE slug = $1 AND status = 'PUBLISHED'
     LIMIT 1;
@@ -72,8 +75,10 @@ export async function getPostBySlug(slug: string) {
       }),
       category: row.tags && row.tags.length > 0 ? row.tags[0] : "General",
       slug: row.slug,
-      // For now, important dates are mocked or extracted from content if we had structured data
-      importantDates: [] 
+      // AI-Generated Content
+      englishTranslation: row.english_translation || null,
+      englishSummary: row.english_summary || null,
+      importantDates: row.important_dates || []
     };
   } catch (error) {
     console.error("Error fetching post by slug:", error);
