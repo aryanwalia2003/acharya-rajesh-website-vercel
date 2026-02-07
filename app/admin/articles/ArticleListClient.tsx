@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useCallback } from 'react';
-import { Globe, EyeOff, Clock, Edit3, Trash2 } from 'lucide-react';
+import { Globe, EyeOff, Eye, Clock, Edit3 } from 'lucide-react';
 import Link from 'next/link';
-import { deleteArticle } from './actions';
+import { unlistArticle, republishArticle } from '@/app/admin/write/actions';
 import { VirtualizedList } from '@/components/VirtualizedList';
 
 interface Article {
@@ -60,11 +60,22 @@ export default function ArticleListClient({
     ? articles 
     : articles.filter(a => a.status === activeTab);
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this research?")) {
-      const res = await deleteArticle(id);
+  const handleToggleStatus = async (id: string, currentStatus: string) => {
+    if (currentStatus === 'PUBLISHED') {
+      if (confirm("Are you sure you want to unlist this article? It will be hidden from the homepage.")) {
+        const res = await unlistArticle(id);
+        if (res.success) {
+          setArticles(articles.map(a => 
+            a.id === id ? { ...a, status: 'UNLISTED' } : a
+          ));
+        }
+      }
+    } else if (currentStatus === 'UNLISTED') {
+      const res = await republishArticle(id);
       if (res.success) {
-        setArticles(articles.filter(a => a.id !== id));
+        setArticles(articles.map(a => 
+          a.id === id ? { ...a, status: 'PUBLISHED' } : a
+        ));
       }
     }
   };
@@ -83,9 +94,24 @@ export default function ArticleListClient({
         <Link href={`/admin/write?edit=${article.id}`} className="p-2 text-slate-400 hover:text-brand-gold">
           <Edit3 size={18} />
         </Link>
-        <button onClick={() => handleDelete(article.id)} className="p-2 text-slate-400 hover:text-red-500">
-          <Trash2 size={18} />
-        </button>
+        {article.status === 'PUBLISHED' && (
+          <button 
+            onClick={() => handleToggleStatus(article.id, article.status)} 
+            className="p-2 text-slate-400 hover:text-amber-500"
+            title="Unlist article"
+          >
+            <EyeOff size={18} />
+          </button>
+        )}
+        {article.status === 'UNLISTED' && (
+          <button 
+            onClick={() => handleToggleStatus(article.id, article.status)} 
+            className="p-2 text-slate-400 hover:text-emerald-500"
+            title="Republish article"
+          >
+            <Eye size={18} />
+          </button>
+        )}
       </div>
     </div>
   );

@@ -158,3 +158,70 @@ export async function getPostById(id: string) {
     return null;
   }
 }
+
+/**
+ * Unlist a published article (hide from public but keep accessible via direct link)
+ */
+export async function unlistArticle(id: string) {
+  if (!(await isAdmin())) throw new Error("Unauthorized");
+
+  const sql = `
+    UPDATE posts 
+    SET status = 'UNLISTED', updated_at = CURRENT_TIMESTAMP
+    WHERE id = $1 AND status = 'PUBLISHED'
+    RETURNING id, slug, status;
+  `;
+
+  try {
+    const result = await query(sql, [id]);
+    
+    if (result.rows.length === 0) {
+      return { success: false, error: "Article not found or not published" };
+    }
+
+    // Refresh relevant pages
+    revalidatePath("/");
+    revalidatePath("/admin/articles");
+    if (result.rows[0].slug) {
+      revalidatePath(`/blog/${result.rows[0].slug}`);
+    }
+
+    return { success: true, data: result.rows[0] };
+  } catch (error: any) {
+    console.error("Unlist failed:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Re-publish an unlisted article (make it public again)
+ */
+export async function republishArticle(id: string) {
+  if (!(await isAdmin())) throw new Error("Unauthorized");
+
+  const sql = `
+    UPDATE posts 
+    SET status = 'PUBLISHED', updated_at = CURRENT_TIMESTAMP
+    WHERE id = $1 AND status = 'UNLISTED'
+    RETURNING id, slug, status;
+  `;
+
+  try {
+    const result = await query(sql, [id]);
+    
+    if (result.rows.length === 0) {
+      return { success: false, error: "Article not found or not unlisted" };
+    }
+
+    revalidatePath("/");
+    revalidatePath("/admin/articles");
+    if (result.rows[0].slug) {
+      revalidatePath(`/blog/${result.rows[0].slug}`);
+    }
+
+    return { success: true, data: result.rows[0] };
+  } catch (error: any) {
+    console.error("Republish failed:", error);
+    return { success: false, error: error.message };
+  }
+}
