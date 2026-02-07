@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback } from 'react';
-import { Globe, EyeOff, Eye, Clock, Edit3 } from 'lucide-react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Globe, EyeOff, Eye, Clock, Edit3, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { unlistArticle, republishArticle } from '@/app/admin/write/actions';
+import { searchAdminArticles } from './actions';
 import { VirtualizedList } from '@/components/VirtualizedList';
 
 interface Article {
@@ -31,6 +32,47 @@ export default function ArticleListClient({
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'PUBLISHED' | 'UNLISTED' | 'DRAFT'>('all');
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Article[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debounced search
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (searchQuery.trim().length < 2) {
+      setSearchResults(null);
+      return;
+    }
+
+    setIsSearching(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await searchAdminArticles(searchQuery, activeTab);
+        setSearchResults(results as Article[]);
+      } catch (error) {
+        console.error('Search failed:', error);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, activeTab]);
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults(null);
+  };
 
   // Load more articles
   const loadMore = useCallback(async () => {
@@ -118,14 +160,36 @@ export default function ArticleListClient({
 
   return (
     <>
-      {/* Tabs */}
+      {/* Tabs and Search */}
       <div className="px-8 py-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
-            <button onClick={() => setActiveTab('all')} className={`px-4 py-1.5 text-xs font-bold uppercase rounded-lg transition-all ${activeTab === 'all' ? 'bg-white text-brand-navy shadow-sm' : 'text-slate-400'}`}>All ({articles.length})</button>
-            <button onClick={() => setActiveTab('PUBLISHED')} className={`px-4 py-1.5 text-xs font-bold uppercase rounded-lg transition-all ${activeTab === 'PUBLISHED' ? 'bg-white text-brand-navy shadow-sm' : 'text-slate-400'}`}>Public</button>
-            <button onClick={() => setActiveTab('UNLISTED')} className={`px-4 py-1.5 text-xs font-bold uppercase rounded-lg transition-all ${activeTab === 'UNLISTED' ? 'bg-white text-brand-navy shadow-sm' : 'text-slate-400'}`}>Unlisted</button>
-            <button onClick={() => setActiveTab('DRAFT')} className={`px-4 py-1.5 text-xs font-bold uppercase rounded-lg transition-all ${activeTab === 'DRAFT' ? 'bg-white text-brand-navy shadow-sm' : 'text-slate-400'}`}>Drafts</button>
+            <button onClick={() => { setActiveTab('all'); clearSearch(); }} className={`px-4 py-1.5 text-xs font-bold uppercase rounded-lg transition-all ${activeTab === 'all' ? 'bg-white text-brand-navy shadow-sm' : 'text-slate-400'}`}>All ({articles.length})</button>
+            <button onClick={() => { setActiveTab('PUBLISHED'); clearSearch(); }} className={`px-4 py-1.5 text-xs font-bold uppercase rounded-lg transition-all ${activeTab === 'PUBLISHED' ? 'bg-white text-brand-navy shadow-sm' : 'text-slate-400'}`}>Public</button>
+            <button onClick={() => { setActiveTab('UNLISTED'); clearSearch(); }} className={`px-4 py-1.5 text-xs font-bold uppercase rounded-lg transition-all ${activeTab === 'UNLISTED' ? 'bg-white text-brand-navy shadow-sm' : 'text-slate-400'}`}>Unlisted</button>
+            <button onClick={() => { setActiveTab('DRAFT'); clearSearch(); }} className={`px-4 py-1.5 text-xs font-bold uppercase rounded-lg transition-all ${activeTab === 'DRAFT' ? 'bg-white text-brand-navy shadow-sm' : 'text-slate-400'}`}>Drafts</button>
+          </div>
+
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search titles..."
+              className="pl-10 pr-8 py-2 w-64 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold/20"
+            />
+            {searchQuery && (
+              <button onClick={clearSearch} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <X size={16} />
+              </button>
+            )}
+            {isSearching && (
+              <div className="absolute right-8 top-1/2 -translate-y-1/2">
+                <div className="w-4 h-4 border-2 border-brand-gold/30 border-t-brand-gold rounded-full animate-spin" />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -140,18 +204,18 @@ export default function ArticleListClient({
             <div className="w-[100px] text-right">Actions</div>
           </div>
 
-          {/* Virtualized List */}
+          {/* Virtualized List - use search results if searching */}
           <VirtualizedList
-            items={filtered}
+            items={searchResults !== null ? searchResults : filtered}
             renderItem={renderArticle}
             estimatedItemHeight={80}
             onLoadMore={loadMore}
-            hasNextPage={hasMore && activeTab === 'all'} // Only load more when viewing all
+            hasNextPage={searchResults === null && hasMore && activeTab === 'all'}
             isLoading={isLoading}
             className="h-[calc(100vh-300px)]"
             emptyComponent={
               <div className="p-12 text-center text-slate-400">
-                No articles found
+                {searchResults !== null ? 'No matching articles found' : 'No articles found'}
               </div>
             }
           />

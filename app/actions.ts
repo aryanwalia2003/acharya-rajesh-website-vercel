@@ -131,3 +131,51 @@ export async function getPostBySlug(slug: string) {
     return null;
   }
 }
+
+// Fuzzy search for published posts (readers)
+export async function searchPosts(
+  searchQuery: string,
+  limit: number = 20
+): Promise<Post[]> {
+  if (!searchQuery || searchQuery.trim().length < 2) {
+    return [];
+  }
+
+  const sql = `
+    SELECT 
+      title_hindi, 
+      content_hindi, 
+      slug, 
+      tags, 
+      published_at,
+      similarity(title_hindi, $1) as score
+    FROM posts 
+    WHERE status = 'PUBLISHED' 
+      AND title_hindi % $1
+    ORDER BY score DESC
+    LIMIT $2;
+  `;
+
+  try {
+    const result = await query(sql, [searchQuery, limit]);
+    
+    return result.rows.map(row => ({
+      title: row.title_hindi,
+      excerpt: row.content_hindi
+        ? row.content_hindi.replace(/<[^>]*>?/gm, '').substring(0, 150) + "..."
+        : "",
+      date: new Date(row.published_at).toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }),
+      category: row.tags && row.tags.length > 0 ? row.tags[0] : "General",
+      slug: row.slug,
+      publishedAt: new Date(row.published_at).toISOString()
+    }));
+  } catch (error) {
+    console.error("Error searching posts:", error);
+    return [];
+  }
+}
+
