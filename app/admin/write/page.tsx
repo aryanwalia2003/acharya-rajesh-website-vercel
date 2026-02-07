@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { 
   Wand2, Languages, CalendarDays, Eye, Send, ChevronLeft, 
   LayoutDashboard, FileText, Clock, X, Plus, Bold, Italic, Quote,
-  Type, Image as ImageIcon, Settings, Info, Save
+  Type, Settings, Info, Heading2
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -12,13 +12,55 @@ export default function AdminWritePage() {
   const [isPreview, setIsPreview] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [title, setTitle] = useState("शनि का गोचर 2024");
-  const [content, setContent] = useState("शनि का गोचर 2024 में एक महत्वपूर्ण ज्योतिषीय घटना है...");
   const [tags, setTags] = useState(["ShaniTransit", "VedicAstrology"]);
   const [newTag, setNewTag] = useState("");
+  const [activeFormats, setActiveFormats] = useState({
+    bold: false,
+    italic: false,
+    heading: false,
+    shloka: false
+  });
+  const [stats, setStats] = useState({ words: 0, readTime: 0 });
+  const editorRef = useRef<HTMLDivElement>(null);
 
-  // Logic to calculate word count & reading time
-  const wordCount = content.trim().split(/\s+/).length;
-  const readingTime = Math.ceil(wordCount / 150);
+  // Check current selection formatting
+  const checkFormats = () => {
+    setActiveFormats({
+      bold: document.queryCommandState('bold'),
+      italic: document.queryCommandState('italic'),
+      heading: document.queryCommandValue('formatBlock') === 'h3',
+      shloka: document.queryCommandValue('formatBlock') === 'blockquote'
+    });
+  };
+
+  // Formatting Functions
+  const applyFormat = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    if (editorRef.current) editorRef.current.focus();
+    checkFormats();
+  };
+
+  const applyHeading = () => {
+    // Heading formatting - Toggle logic
+    if (document.queryCommandValue('formatBlock') === 'h3') {
+      document.execCommand('formatBlock', false, 'p');
+    } else {
+      document.execCommand('formatBlock', false, 'h3');
+    }
+    if (editorRef.current) editorRef.current.focus();
+    checkFormats();
+  };
+
+  const applyShloka = () => {
+    // Sanskrit Shloka formatting - Toggle logic
+    if (document.queryCommandValue('formatBlock') === 'blockquote') {
+      document.execCommand('formatBlock', false, 'p');
+    } else {
+      document.execCommand('formatBlock', false, 'blockquote');
+    }
+    if (editorRef.current) editorRef.current.focus();
+    checkFormats();
+  };
 
   const addTag = (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,37 +120,54 @@ export default function AdminWritePage() {
           </div>
         </header>
 
-        {/* Toolbar */}
+        {/* TOOLBAR (Fixed functionality) */}
         <div className="flex items-center gap-1 border-b border-brand-navy/5 bg-white px-8 py-2">
-          <button title="Bold" className="p-2 text-slate-400 hover:bg-slate-50 hover:text-brand-navy rounded"><Bold size={18} /></button>
-          <button title="Italic" className="p-2 text-slate-400 hover:bg-slate-50 hover:text-brand-navy rounded"><Italic size={18} /></button>
+          <button 
+            onMouseDown={(e) => { e.preventDefault(); applyFormat('bold'); }}
+            className={`p-2 rounded transition-colors ${activeFormats.bold ? 'bg-brand-navy text-brand-gold' : 'text-slate-400 hover:bg-brand-navy/5 hover:text-brand-navy'}`}
+          >
+            <Bold size={18} />
+          </button>
+          <button 
+            onMouseDown={(e) => { e.preventDefault(); applyFormat('italic'); }}
+            className={`p-2 rounded transition-colors ${activeFormats.italic ? 'bg-brand-navy text-brand-gold' : 'text-slate-400 hover:bg-brand-navy/5 hover:text-brand-navy'}`}
+          >
+            <Italic size={18} />
+          </button>
           <div className="mx-2 h-4 w-px bg-slate-200"></div>
-          <button title="Add Sanskrit Block" className="p-2 text-slate-400 hover:bg-slate-50 hover:text-brand-navy rounded flex items-center gap-1 border border-transparent hover:border-brand-gold/30">
-            <Quote size={18} /> <span className="text-[10px] font-bold uppercase">Sanskrit Shloka</span>
+          
+          <button 
+            onMouseDown={(e) => { e.preventDefault(); applyHeading(); }}
+            className={`p-2 rounded flex items-center gap-1 transition-colors ${activeFormats.heading ? 'bg-brand-navy text-brand-gold' : 'text-slate-400 hover:bg-brand-navy/5 hover:text-brand-navy'}`}
+          >
+            <Heading2 size={18} /> <span className="text-[10px] font-bold uppercase">Subheading</span>
           </button>
 
+          <button 
+            onMouseDown={(e) => { e.preventDefault(); applyShloka(); }}
+            className={`p-2 rounded flex items-center gap-1 border transition-colors ${activeFormats.shloka ? 'bg-brand-gold/10 border-brand-gold text-brand-navy' : 'border-transparent text-slate-400 hover:bg-brand-navy/5 hover:text-brand-navy'}`}
+          >
+            <Quote size={18} /> <span className={`text-[10px] font-bold uppercase ${activeFormats.shloka ? 'text-brand-navy' : 'text-brand-gold'}`}>Sanskrit Shloka</span>
+          </button>
         </div>
 
         {/* Writing Area */}
         <div className="flex-1 overflow-y-auto px-8 py-12 md:px-20 lg:px-32 pb-32">
           <div className="mx-auto max-w-2xl">
             
-            {/* 1. REFINED TAGS AREA (Fixed Visibility & Clipping) */}
+            {/* Tags Area */}
             <div className="mb-12 flex flex-wrap items-center gap-3">
-              {/* Existing Tags */}
               {tags.map(t => (
-                <span key={t} className="flex items-center gap-1.5 rounded-full bg-brand-gold/20 border border-brand-gold/40 px-3 py-1 text-[11px] font-bold text-brand-navy uppercase shadow-sm">
+                <span key={t} className="flex items-center gap-1.5 rounded-full bg-brand-gold/20 border border-brand-gold/40 px-3 py-1.5 text-[11px] font-bold text-brand-navy uppercase shadow-sm">
                   #{t}
                   <X 
                     size={14} 
-                    className="cursor-pointer text-brand-navy/40 hover:text-red-600 transition-colors" 
+                    className="cursor-pointer text-brand-navy/40 hover:text-red-600" 
                     onClick={() => setTags(tags.filter(tag => tag !== t))} 
                   />
                 </span>
               ))}
-
-              {/* Modern Add Tag Input */}
-              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1 focus-within:border-brand-gold focus-within:ring-1 focus-within:ring-brand-gold/20 transition-all shadow-sm">
+              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 focus-within:border-brand-gold shadow-sm">
                 <Plus size={14} className="text-slate-400" />
                 <form onSubmit={addTag}>
                   <input 
@@ -116,54 +175,53 @@ export default function AdminWritePage() {
                     value={newTag} 
                     onChange={(e) => setNewTag(e.target.value)} 
                     placeholder="Add Keyword..." 
-                    className="w-28 border-none bg-transparent p-0 text-[11px] font-bold uppercase tracking-widest text-brand-navy placeholder:text-slate-400 focus:ring-0" 
+                    className="w-28 border-none bg-transparent p-0 text-[11px] font-bold uppercase text-brand-navy focus:ring-0" 
                   />
                 </form>
               </div>
             </div>
 
-            {/* 2. TITLE (Added top padding to prevent clipping) */}
-            <div className="relative pt-4">
-              <input 
-                type="text" 
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="शीर्षक यहाँ लिखें..."
-                className="w-full border-none bg-transparent font-hindi text-4xl md:text-5xl font-black text-brand-navy placeholder:text-slate-200 focus:ring-0 leading-normal py-2"
-              />
-            </div>
-            
-
-
-            {/* 4. CONTENT EDITOR */}
-            <textarea 
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="अपनी रिसर्च यहाँ लिखें..."
-              className="mt-12 min-h-[600px] w-full resize-none border-none bg-transparent font-hindi text-xl md:text-2xl leading-[1.8] text-brand-ink outline-none focus:ring-0"
+            <input 
+              type="text" 
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="शीर्षक यहाँ लिखें..."
+              className="w-full border-none bg-transparent font-hindi text-4xl md:text-5xl font-black text-brand-navy focus:ring-0 py-2 mb-12"
             />
+            
+            {/* CONTENT EDITOR (Converted to contentEditable) */}
+            <div 
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning={true}
+              className="min-h-[600px] w-full border-none bg-transparent font-hindi text-xl md:text-2xl leading-[1.8] text-brand-ink outline-none prose prose-slate max-w-none 
+              [&>h3]:text-3xl [&>h3]:font-bold [&>h3]:text-brand-navy [&>h3]:mt-8 [&>h3]:mb-4
+              [&>blockquote]:border-l-4 [&>blockquote]:border-brand-gold [&>blockquote]:bg-brand-gold/5 [&>blockquote]:py-6 [&>blockquote]:px-8 [&>blockquote]:italic [&>blockquote]:my-8 [&>blockquote]:font-bold [&>blockquote]:text-center"
+              onInput={(e) => {
+                if (editorRef.current) {
+                  const text = editorRef.current.innerText || "";
+                  const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+                  setStats({ 
+                    words, 
+                    readTime: Math.ceil(words / 200) 
+                  });
+                }
+              }}
+              onKeyUp={checkFormats}
+              onMouseUp={checkFormats}
+            >
+              <p>शनi का गोचर 2024 में एक महत्वपूर्ण ज्योतिषीय घटना है। यह न केवल व्यक्तिगत जीवन पर प्रभाव डालेगा...</p>
+            </div>
           </div>
         </div>
 
         {/* BOTTOM STATUS BAR */}
         <div className="absolute bottom-0 w-full border-t border-brand-navy/5 bg-white/80 px-8 py-3 backdrop-blur-md flex items-center justify-between">
           <div className="flex gap-6">
-            <div className="flex flex-col">
-              <span className="text-[8px] font-black uppercase text-slate-400">Word Count</span>
-              <span className="text-xs font-bold text-brand-navy">{wordCount} Words</span>
-            </div>
-            <div className="flex flex-col border-x border-slate-100 px-6">
-              <span className="text-[8px] font-black uppercase text-slate-400">Reading Time</span>
-              <span className="text-xs font-bold text-brand-navy">{readingTime} Minutes</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[8px] font-black uppercase text-slate-400">Hindi Font</span>
-              <span className="text-xs font-bold text-brand-navy">Martel (Primary)</span>
-            </div>
+            <div className="flex flex-col"><span className="text-[8px] font-black uppercase text-slate-400">Word Count</span><span className="text-xs font-bold text-brand-navy">{stats.words} Words</span></div>
+            <div className="flex flex-col border-x border-slate-100 px-6"><span className="text-[8px] font-black uppercase text-slate-400">Reading Time</span><span className="text-xs font-bold text-brand-navy">{stats.readTime} Min Read</span></div>
           </div>
-          <button className="flex items-center gap-2 rounded-lg bg-slate-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-brand-navy">
-            <Info size={14} /> Writing Guide
-          </button>
+          <button className="flex items-center gap-2 rounded-lg bg-slate-50 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-brand-navy"><Info size={14} /> Writing Guide</button>
         </div>
       </main>
 
@@ -174,23 +232,16 @@ export default function AdminWritePage() {
             <Wand2 size={16} className="text-brand-gold" /> AI Suite
           </h3>
         </div>
-        <div className="p-6 space-y-4 overflow-y-auto">
-          {/* AI Tools Cards from previous version... */}
+        <div className="p-6 space-y-4">
           <ToolCard icon={<Languages size={18}/>} title="Translation" desc="Hindi to Scholarly English" />
           <ToolCard icon={<FileText size={18}/>} title="Summary" desc="3-Paragraph Exec Summary" />
           <ToolCard icon={<CalendarDays size={18}/>} title="Extract Dates" desc="Muhurats & Transits" badge="SAVE REQ" />
-          
-          <div className="mt-8 rounded-xl bg-brand-navy p-4 text-center">
-            <p className="text-[10px] font-bold text-brand-gold uppercase tracking-[0.2em] mb-2">Need Reference?</p>
-            <button className="w-full rounded-lg bg-white/10 py-2 text-[10px] font-bold text-white hover:bg-white/20 transition-colors uppercase">Open Ephemeris</button>
-          </div>
         </div>
       </aside>
     </div>
   );
 }
 
-// Small helper component for AI Sidebar
 function ToolCard({ icon, title, desc, badge }: { icon: any, title: string, desc: string, badge?: string }) {
   return (
     <button className="flex w-full flex-col gap-1 rounded-xl border border-brand-navy/5 bg-brand-paper p-4 text-left transition-all hover:border-brand-gold/50 group">
