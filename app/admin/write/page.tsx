@@ -1,21 +1,37 @@
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { upsertArticle, getNewPostId } from './actions';
+import { getPostForEditing } from './data';
 import { 
   Wand2, Languages, CalendarDays, Eye, Send, ChevronLeft, 
   LayoutDashboard, FileText, Clock, X, Plus, Bold, Italic, Quote,
   Type, Settings, Info, Heading2
 } from 'lucide-react';
 import Link from 'next/link';
-import { publishArticle } from './actions';
 
 export default function AdminWritePage() {
-  const [isPreview, setIsPreview] = useState(false);
+  return (
+    <Suspense fallback={<div>Loading Editor...</div>}>
+      <EditorComponent />
+    </Suspense>
+  );
+}
+
+function EditorComponent() {
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('edit');
+
+  const [postId, setPostId] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState(""); // Tracks plain text/HTML for logic
+  const [tags, setTags] = useState<string[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [showSettings, setShowSettings] = useState(false);
-  const [title, setTitle] = useState("शनि का गोचर 2024");
-  const [tags, setTags] = useState(["ShaniTransit", "VedicAstrology"]);
   const [newTag, setNewTag] = useState("");
-  const [isPublishing, setIsPublishing] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [activeFormats, setActiveFormats] = useState({
     bold: false,
     italic: false,
@@ -23,7 +39,65 @@ export default function AdminWritePage() {
     shloka: false
   });
   const [stats, setStats] = useState({ words: 0, readTime: 0 });
+  const [isPublishing, setIsPublishing] = useState(false);
+  
   const editorRef = useRef<HTMLDivElement>(null);
+
+  // 1. LOAD INITIAL DATA (New or Edit)
+  useEffect(() => {
+    const init = async () => {
+      if (editId) {
+        // Mode: EDITING
+        const post = await getPostForEditing(editId);
+        if (post) {
+          setPostId(post.id);
+          setTitle(post.title_hindi);
+          setTags(post.tags || []);
+          setContent(post.content_hindi);
+          // Manually set the contentEditable div content
+          if (editorRef.current) {
+            editorRef.current.innerHTML = post.content_hindi;
+          }
+        }
+      } else {
+        // Mode: NEW POST
+        const newId = await getNewPostId();
+        setPostId(newId);
+        setTitle("शीर्षक यहाँ लिखें...");
+      }
+      setIsLoaded(true);
+    };
+    init();
+  }, [editId]);
+
+  // 2. AUTO-SAVE LOGIC (The "Brain")
+  useEffect(() => {
+    // Don't save if both title is default AND content is empty. 
+    // If user has written content, we should save even if title is default.
+    if (!isLoaded || !postId) return;
+    if ((!title || title === "शीर्षक यहाँ लिखें...") && !content) return;
+
+    const delayDebounceFn = setTimeout(async () => {
+      setSaveStatus('saving');
+      
+      const result = await upsertArticle({
+        id: postId,
+        title: title,
+        content: editorRef.current?.innerHTML || "",
+        slug: title.toLowerCase().trim().replace(/\s+/g, '-').slice(0, 50),
+        tags: tags,
+        intent: 'DRAFT' // Auto-save is always a draft intent
+      });
+
+      if (result.success) {
+          setSaveStatus('saved');
+          setLastSavedAt(new Date());
+      }
+      else setSaveStatus('error');
+    }, 2000);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [title, content, tags, isLoaded, postId]);
 
   // Check current selection formatting
   const checkFormats = () => {
@@ -73,16 +147,17 @@ export default function AdminWritePage() {
   };
 
   const handlePublish = async () => {
-    if (!title || !editorRef.current) return;
+    if (!title || !editorRef.current || !postId) return;
 
     setIsPublishing(true);
     
-    const result = await publishArticle({
+    const result = await upsertArticle({
+      id: postId, 
       title: title,
-      content: editorRef.current.innerHTML, // Get the formatted HTML
-      slug: title.toLowerCase().replace(/\s+/g, '-'), // Basic slug logic
+      content: editorRef.current.innerHTML,
+      slug: title.toLowerCase().trim().replace(/\s+/g, '-').slice(0, 50), 
       tags: tags,
-      status: 'PUBLISHED'
+      intent: 'PUBLISH'
     });
 
     setIsPublishing(false);
@@ -94,7 +169,8 @@ export default function AdminWritePage() {
     }
   };
 
-  if (isPreview) { /* Previous Preview Code... */ }
+
+  if (!isLoaded) return <div className="flex h-screen items-center justify-center bg-brand-paper text-brand-navy font-bold">Initializing Studio...</div>;
 
   return (
     <div className="flex h-screen bg-brand-paper overflow-hidden">
@@ -124,18 +200,35 @@ export default function AdminWritePage() {
           </button>
         </div>
       </aside>
-
-      {/* MAIN EDITOR AREA */}
+      
       <main className="flex flex-1 flex-col overflow-hidden relative">
-        <header className="flex h-16 items-center justify-between border-b border-brand-navy/5 bg-white px-8">
+         <header className="flex h-16 items-center justify-between border-b border-brand-navy/5 bg-white px-8">
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-[10px] font-bold text-green-500 uppercase tracking-widest">
-              <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></div>
-              Cloud Synced
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
+              {saveStatus === 'saving' && (
+                <span className="flex items-center gap-2 text-brand-gold">
+                  <div className="h-1.5 w-1.5 rounded-full bg-brand-gold animate-ping"></div>
+                  Saving Draft...
+                </span>
+              )}
+              {saveStatus === 'saved' && (
+                <span className="text-green-500">
+                  ✓ Saved {lastSavedAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              {saveStatus === 'error' && (
+                <span className="text-red-500 underline">Offline - Save Failed</span>
+              )}
+              {saveStatus === 'idle' && (
+                <div className="flex items-center gap-2 text-green-500">
+                  <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                  Cloud Synced
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setIsPreview(true)} className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-widest text-brand-navy hover:bg-brand-navy/5">
+            <button className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-widest text-brand-navy hover:bg-brand-navy/5">
               <Eye size={16} /> Preview
             </button>
             <button 
@@ -179,24 +272,18 @@ export default function AdminWritePage() {
             <Quote size={18} /> <span className={`text-[10px] font-bold uppercase ${activeFormats.shloka ? 'text-brand-navy' : 'text-brand-gold'}`}>Sanskrit Shloka</span>
           </button>
         </div>
-
-        {/* Writing Area */}
-        <div className="flex-1 overflow-y-auto px-8 py-12 md:px-20 lg:px-32 pb-32">
-          <div className="mx-auto max-w-2xl">
-            
-            {/* Tags Area */}
-            <div className="mb-12 flex flex-wrap items-center gap-3">
-              {tags.map(t => (
-                <span key={t} className="flex items-center gap-1.5 rounded-full bg-brand-gold/20 border border-brand-gold/40 px-3 py-1.5 text-[11px] font-bold text-brand-navy uppercase shadow-sm">
-                  #{t}
-                  <X 
-                    size={14} 
-                    className="cursor-pointer text-brand-navy/40 hover:text-red-600" 
-                    onClick={() => setTags(tags.filter(tag => tag !== t))} 
-                  />
-                </span>
-              ))}
-              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 focus-within:border-brand-gold shadow-sm">
+         
+         <div className="flex-1 overflow-y-auto px-8 py-12 md:px-20 lg:px-32 pb-32">
+            <div className="mx-auto max-w-2xl">
+              {/* Tags Area */}
+              <div className="mb-4 flex flex-wrap items-center gap-3">
+                {tags.map(t => (
+                  <span key={t} className="flex items-center gap-1.5 rounded-full bg-brand-gold/20 border border-brand-gold/40 px-3 py-1.5 text-[11px] font-bold text-brand-navy uppercase shadow-sm">
+                    #{t}
+                    <X size={14} className="cursor-pointer" onClick={() => setTags(tags.filter(tag => tag !== t))} />
+                  </span>
+                ))}
+                <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 focus-within:border-brand-gold shadow-sm">
                 <Plus size={14} className="text-slate-400" />
                 <form onSubmit={addTag}>
                   <input 
@@ -208,43 +295,48 @@ export default function AdminWritePage() {
                   />
                 </form>
               </div>
-            </div>
+              </div>
 
-            <input 
-              type="text" 
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="शीर्षक यहाँ लिखें..."
-              className="w-full border-none bg-transparent font-hindi text-4xl md:text-5xl font-black text-brand-navy focus:ring-0 py-2 mb-12"
-            />
-            
-            {/* CONTENT EDITOR (Converted to contentEditable) */}
-            <div 
-              ref={editorRef}
-              contentEditable
-              suppressContentEditableWarning={true}
-              className="min-h-[600px] w-full border-none bg-transparent font-hindi text-xl md:text-2xl leading-[1.8] text-brand-ink outline-none prose prose-slate max-w-none 
+              {/* Title Input */}
+              <input 
+                type="text" 
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full border-none bg-transparent font-hindi text-4xl md:text-5xl font-black text-brand-navy focus:ring-0 leading-normal py-6 mb-8 placeholder:text-slate-300"
+              />
+
+              {/* THE EDITOR */}
+              <div 
+                ref={editorRef}
+                contentEditable
+                suppressContentEditableWarning={true}
+                onInput={(e) => {
+                    if (editorRef.current) {
+                        const text = editorRef.current.innerText || "";
+                        const html = editorRef.current.innerHTML;
+                        
+                        setContent(html);
+
+                        const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+                        setStats({ 
+                            words, 
+                            readTime: Math.ceil(words / 200) 
+                        });
+                    }
+                }}
+                onKeyUp={checkFormats}
+                onMouseUp={checkFormats}
+                className="min-h-[600px] w-full border-none bg-transparent font-hindi text-xl md:text-2xl leading-[1.8] text-brand-ink outline-none prose prose-slate max-w-none 
               [&>h3]:text-3xl [&>h3]:font-bold [&>h3]:text-brand-navy [&>h3]:mt-8 [&>h3]:mb-4
               [&>blockquote]:border-l-4 [&>blockquote]:border-brand-gold [&>blockquote]:bg-brand-gold/5 [&>blockquote]:py-6 [&>blockquote]:px-8 [&>blockquote]:italic [&>blockquote]:my-8 [&>blockquote]:font-bold [&>blockquote]:text-center"
-              onInput={(e) => {
-                if (editorRef.current) {
-                  const text = editorRef.current.innerText || "";
-                  const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
-                  setStats({ 
-                    words, 
-                    readTime: Math.ceil(words / 200) 
-                  });
-                }
-              }}
-              onKeyUp={checkFormats}
-              onMouseUp={checkFormats}
-            >
-              <p>शनi का गोचर 2024 में एक महत्वपूर्ण ज्योतिषीय घटना है। यह न केवल व्यक्तिगत जीवन पर प्रभाव डालेगा...</p>
+              >
+                {/* Initial text is handled by the useEffect for Edit mode */}
+                {!editId && <p>अपनी रिसर्च यहाँ लिखें...</p>}
+              </div>
             </div>
-          </div>
-        </div>
+         </div>
 
-        {/* BOTTOM STATUS BAR */}
+         {/* BOTTOM STATUS BAR */}
         <div className="absolute bottom-0 w-full border-t border-brand-navy/5 bg-white/80 px-8 py-3 backdrop-blur-md flex items-center justify-between">
           <div className="flex gap-6">
             <div className="flex flex-col"><span className="text-[8px] font-black uppercase text-slate-400">Word Count</span><span className="text-xs font-bold text-brand-navy">{stats.words} Words</span></div>
