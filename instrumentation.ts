@@ -7,15 +7,15 @@ export async function register() {
   try {
     // Dynamic import to avoid build-time execution issues
     const { query } = await import('@/lib/db');
-    const { redis } = await import('@/lib/redis');
+    // const { redis } = await import('@/lib/redis'); // Redis temporarily disabled
 
     // Check DB
     await query('SELECT 1');
     console.log('[SERVER] Database connection validated');
 
     // Check Redis
-    await redis.ping();
-    console.log('[SERVER] Redis connection validated');
+    // await redis.ping();
+    // console.log('[SERVER] Redis connection validated');
     
     console.log('[SERVER] Ready to serve requests');
   } catch (error) {
