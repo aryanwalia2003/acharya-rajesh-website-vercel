@@ -4,6 +4,9 @@ import Footer from '@/components/Footer';
 import BlogFeed from '@/components/BlogFeed';
 import { getLatestPosts } from '../actions';
 
+// Force dynamic rendering (no caching)
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Journal | Acharya Rajesh ',
   description: 'Explore the complete collection of Vedic Astrology articles, daily horoscopes, and spiritual insights.',
