@@ -3,10 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Sparkles, Menu, X } from 'lucide-react';
+import { Sparkles, Menu, X, PenSquare } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'ADMIN';
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-brand-navy/10 bg-brand-paper/95 backdrop-blur-sm">
@@ -39,6 +42,17 @@ export default function Navbar() {
           <Link href="/about" className="hover:text-brand-gold transition-colors">About</Link>
           <Link href="/contact" className="hover:text-brand-gold transition-colors">Contact</Link>
         </nav>
+
+        {/* Admin Quick Access */}
+        {isAdmin && (
+          <Link 
+            href="/admin/write" 
+            className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-brand-gold/20 text-brand-navy hover:bg-brand-gold/40 transition-all"
+            title="Write New Article"
+          >
+            <PenSquare size={18} />
+          </Link>
+        )}
 
         {/* CTA Button (Desktop) */}
         <Link 

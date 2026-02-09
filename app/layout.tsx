@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Newsreader, Martel } from "next/font/google";
 import "./globals.css";
+import Providers from "@/components/Providers";
 
 const newsreader = Newsreader({
   subsets: ["latin"],
@@ -29,7 +30,7 @@ export default function RootLayout({
       <body
         className={`${newsreader.variable} ${martel.variable} antialiased font-display`}
       >
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

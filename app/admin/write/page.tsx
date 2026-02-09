@@ -8,7 +8,7 @@ export default async function AdminWritePage() {
   const authorized = await isAdmin();
   
   if (!authorized) {
-    redirect('/login?error=unauthorized');
+    redirect('/unauthorized');
   }
 
   return (

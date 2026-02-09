@@ -17,7 +17,7 @@ export default async function AdminArticlesPage({ searchParams }: PageProps) {
   // 1. Protection
   const authorized = await isAdmin();
   if (!authorized) {
-    redirect('/login?error=unauthorized');
+    redirect('/unauthorized');
   }
 
   const resolvedParams = await searchParams;
