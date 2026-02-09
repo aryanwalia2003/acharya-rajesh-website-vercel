@@ -62,7 +62,7 @@ export default function TermsOfService() {
 
            <h3>8. Contact Us</h3>
           <p>
-            If you have any questions about these Terms, please contact us at <a href="mailto:acharyarajesh@gmail.com">acharyarajesh@gmail.com</a>.
+            If you have any questions about these Terms, please contact us at <a href="mailto:rajeshacharya1141@gmail.com">rajeshacharya1141@gmail.com</a>.
           </p>
         </div>
       </main>

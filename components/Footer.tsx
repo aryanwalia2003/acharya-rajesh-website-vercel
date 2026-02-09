@@ -56,8 +56,13 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="mailto:acharyarajesh@gmail.com" className="hover:text-brand-gold transition-colors">
-                  acharyarajesh@gmail.com
+                <a href="tel:+917982803848" className="hover:text-brand-gold transition-colors">
+                  +91 7982803848
+                </a>
+              </li>
+              <li>
+                <a href="mailto:rajeshacharya1141@gmail.com" className="hover:text-brand-gold transition-colors">
+                  rajeshacharya1141@gmail.com
                 </a>
               </li>
               <li className="flex gap-4 pt-2">

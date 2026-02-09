@@ -112,8 +112,8 @@ export default function ContactPage() {
                    <div>
                     <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Email Us</p>
                     <p className="font-bold text-brand-navy">
-                      <a href="mailto:acharyarajesh@gmail.com" className="hover:text-brand-gold transition-colors">
-                        acharyarajesh@gmail.com
+                      <a href="mailto:rajeshacharya1141@gmail.com" className="hover:text-brand-gold transition-colors">
+                        rajeshacharya1141@gmail.com
                       </a>
                     </p>
                   </div>

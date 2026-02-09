@@ -73,7 +73,7 @@ export default async function Home() {
                  <div className="w-12 h-12 bg-brand-navy rounded-full flex items-center justify-center mb-6 text-brand-gold group-hover:scale-110 transition-transform">
                   <Sun size={24} />
                 </div>
-                <h3 className="text-xl font-bold text-brand-navy mb-3">Match Making</h3>
+                <h3 className="text-xl font-bold text-brand-navy mb-3">Karam Kaand</h3>
                 <p className="text-brand-navy/60 mb-6 text-sm leading-relaxed">
                   Comprehensive compatibility analysis (Gun Milan) for a harmonious and prosperous marital life.
                 </p>
@@ -85,7 +85,7 @@ export default async function Home() {
                  <div className="w-12 h-12 bg-brand-navy rounded-full flex items-center justify-center mb-6 text-brand-gold group-hover:scale-110 transition-transform">
                   <Star size={24} />
                 </div>
-                <h3 className="text-xl font-bold text-brand-navy mb-3">Muhurat Trading</h3>
+                <h3 className="text-xl font-bold text-brand-navy mb-3">Vastu</h3>
                 <p className="text-brand-navy/60 mb-6 text-sm leading-relaxed">
                   Identify the most auspicious times to start new ventures, investments, or important life events.
                 </p>

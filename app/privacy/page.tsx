@@ -63,8 +63,8 @@ export default function PrivacyPolicy() {
             If you have any questions about this Privacy Policy, please contact us:
           </p>
           <ul>
-            <li>By email: <a href="mailto:acharyarajesh@gmail.com">acharyarajesh@gmail.com</a></li>
-            <li>By phone: +91 98104 49333</li>
+            <li>By email: <a href="mailto:rajeshacharya1141@gmail.com">rajeshacharya1141@gmail.com</a></li>
+            <li>By phone: +91 98104 49333 / +91 7982803848</li>
           </ul>
         </div>
       </main>
