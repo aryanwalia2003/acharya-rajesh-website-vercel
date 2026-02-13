@@ -54,6 +54,9 @@ export default function EditorComponent() {
   // Sidebar Stats
   const [draftCount, setDraftCount] = useState(0);
   
+  // Mobile UI States
+  const [showMobileAi, setShowMobileAi] = useState(false);
+
   const editorRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
 
@@ -333,21 +336,23 @@ export default function EditorComponent() {
             </div>
           </div>
             <div className="flex items-center gap-3">
-             <div className="hidden md:block">
-                <select 
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as any)}
-                  className="rounded-lg border-brand-navy/10 bg-brand-navy/5 py-2 px-3 text-xs font-bold uppercase tracking-wide text-brand-navy focus:border-brand-gold focus:ring-brand-gold"
-                >
-                  <option value="Misceleneous">Select Category</option>
-                  <option value="Astrology">Astrology</option>
-                  <option value="Panchang">Panchang</option>
-                  <option value="Festivals">Festivals</option>
-                  <option value="Misceleneous">Misceleneous</option>
-              </select>
-             </div>
 
-            <button className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-widest text-brand-navy hover:bg-brand-navy/5">
+              {/* Category Selector - Visible on all screens now */}
+              <div className="block">
+                 <select 
+                   value={category}
+                   onChange={(e) => setCategory(e.target.value as any)}
+                   className="rounded-lg border-brand-navy/10 bg-brand-navy/5 py-2 px-3 text-xs font-bold uppercase tracking-wide text-brand-navy focus:border-brand-gold focus:ring-brand-gold max-w-[120px] md:max-w-none"
+                 >
+                   <option value="Misceleneous">Category</option>
+                   <option value="Astrology">Astrology</option>
+                   <option value="Panchang">Panchang</option>
+                   <option value="Festivals">Festivals</option>
+                   <option value="Misceleneous">Misceleneous</option>
+               </select>
+              </div>
+
+            <button className="hidden md:flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-widest text-brand-navy hover:bg-brand-navy/5">
               <Eye size={16} /> Preview
             </button>
             <button 
@@ -393,7 +398,49 @@ export default function EditorComponent() {
           >
             <Quote size={18} /> <span className={`text-[10px] font-bold uppercase ${activeFormats.shloka ? 'text-brand-navy' : 'text-brand-gold'}`}>Sanskrit Shloka</span>
           </button>
+          
+          <div className="flex-1"></div>
+
+          {/* Mobile AI Toggle */}
+          <button 
+             onClick={() => setShowMobileAi(!showMobileAi)}
+             className={`lg:hidden p-2 rounded transition-colors ${showMobileAi ? 'bg-brand-gold text-brand-navy' : 'text-brand-gold hover:bg-brand-navy/5'}`}
+          >
+            <Wand2 size={18} />
+          </button>
         </div>
+        
+        {/* Mobile AI Menu */}
+        {showMobileAi && (
+          <div className="lg:hidden border-b border-brand-navy/5 bg-slate-50 px-8 py-4 animate-in slide-in-from-top-2">
+             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <ToolCard 
+                icon={<Languages size={18}/>} 
+                title="Translation" 
+                desc={englishTranslation ? "✓ Ready" : "Hindi to English"}
+                loading={activeAiTask === 'translation'}
+                onClick={() => handleAiTask('translation')}
+                active={!!englishTranslation}
+              />
+              <ToolCard 
+                icon={<FileText size={18}/>} 
+                title="Summary" 
+                desc={englishSummary ? "✓ Ready" : "Exec Summary"} 
+                loading={activeAiTask === 'summary'}
+                onClick={() => handleAiTask('summary')}
+                active={!!englishSummary}
+              />
+              <ToolCard 
+                icon={<CalendarDays size={18}/>} 
+                title="Dates" 
+                desc={extractedDates.length > 0 ? "✓ Found" : "Extract Dates"} 
+                loading={activeAiTask === 'dates'}
+                onClick={() => handleAiTask('dates')}
+                active={extractedDates.length > 0}
+              />
+             </div>
+          </div>
+        )}
          
          <div className="flex-1 overflow-y-auto px-8 py-12 md:px-20 lg:px-32 pb-32">
             <div className="mx-auto max-w-2xl">
